@@ -1,0 +1,940 @@
+<!-- 
+  Five Seven Five
+  -----------
+  Single-file, local-first haiku editor with live syllable counting.
+
+  Design goals:
+  - No build step, no backend, no dependencies
+  - Data lives locally (localStorage) with explicit export/import
+  - Syllable counts are heuristic, not authoritative
+  - Intended for personal use, Obsidian-friendly
+
+ https://github.com/kemie/Five-seven-five
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Five Seven Five</title>
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Mona+Sans:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+  <style>
+	:root {
+	  /* Spacing & sizing */
+	  --space-xs: 4px;
+	  --space-sm: 8px;
+	  --space-md: 12px;
+	  --space-lg: 16px;
+	  --space-xl: 20px;
+	
+	  --radius-sm: 8px;
+	  --radius-md: 10px;
+	  --radius-lg: 12px;
+	  --radius-pill: 999px;
+	
+	  /* Typography */
+	  --font-body: "Mona Sans", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+	  --font-size-xs: 12px;
+	  --font-size-sm: 14px;
+	  --font-size-base: 16px;
+	  --font-size-lg: 20px;
+	  --line-height-base: 1.4;
+	
+	  /* Colour — neutrals */
+	  --color-bg-app: #EFF1FF;
+	  --color-bg-surface: #ffffff;
+	  --color-bg-muted: #F9F9FB;
+	  --color-bg-subtle: #EFF0F3;
+	
+	  --color-border-subtle: #D8D9E0;
+	  --color-border-default: #CDCED7;
+	
+	  --color-text-primary: #1E1F24;
+	  --color-text-muted: #80828D;
+	  --color-text-soft: #62636C;
+	
+	  /* Colour — accents & states */
+	  --color-accent-primary: #5753C6;
+	  --color-accent-primary-hover: #423fbb;
+	  --color-accent-danger: #E54D2E;
+	  --color-accent-danger-hover: #c42c0e;
+	
+	  --color-success: #29A383;
+	  --color-success-bg: #f2fff9;
+	
+	  --color-error: #E54D2E;
+	  --color-error-bg: #fff5f5;
+	
+	  /* Effects */
+	  --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.03);
+	}
+	
+	/* Base layout */
+	
+	body {
+	  font-family: var(--font-body);
+	  margin: 0;
+	  font-family: 
+	  font-optical-sizing: auto;
+	  background: var(--color-bg-app);
+	  color: var(--color-text-primary);
+	}
+	
+	header {
+	  padding: var(--space-lg) var(--space-xl);
+	  background: var(--color-bg-surface);
+	  border-bottom: 1px solid var(--color-border-subtle);
+	  position: sticky;
+	  top: 0;
+	}
+	
+	header h1 {
+	  font-size: var(--font-size-lg);
+	  margin: 0 0;
+	}
+	.container{
+	padding: var(--space-lg);
+	  max-width: 1100px;
+	  margin: 0 auto;	
+	}
+	main {
+	  display: grid;
+	  grid-template-columns: 1.2fr 0.8fr;
+	  gap: var(--space-lg);
+	  padding: var(--space-xl);
+	  max-width: 1100px;
+	  margin: 0 auto;
+	}
+	
+	@media (max-width: 900px) {
+	  main {
+		grid-template-columns: 1fr;
+	  }
+	}
+	.footer{
+		text-align: center;
+		padding-top: var(--space-xl);
+	}
+	/* Utility text */
+	
+	.muted {
+	  color: var(--color-text-muted);
+	  font-size: var(--font-size-xs);
+	}
+	
+	.tiny {
+	  font-size: var(--font-size-xs);
+	}
+	
+	/* Cards */
+	
+	.card {
+	  background: var(--color-bg-surface);
+	  border: 1px solid var(--color-border-subtle);
+	  border-radius: var(--radius-lg);
+	  padding: var(--space-md);
+	  box-shadow: var(--shadow-card);
+	}
+	
+	/* Form elements */
+	
+	textarea {
+	  width: 95%;
+	  /*min-height: 42px;*/
+	  resize: vertical;
+	  padding: var(--space-sm) var(--space-md);
+	  border: 1px solid var(--color-border-default);
+	  border-radius: var(--radius-md);
+	  font-size: var(--font-size-base);
+	  line-height: var(--line-height-base);
+	  font-family: var(--font-body);
+	}
+	
+	input[type="text"] {
+	  width: 90%;
+	  padding: var(--space-sm) var(--space-md);
+	  border: 1px solid var(--color-border-default);
+	  border-radius: var(--radius-md);
+	  font-size: var(--font-size-base);
+	  font-family: var(--font-body);
+	}
+	
+	select {
+	  padding: var(--space-sm) var(--space-md);
+	  border-radius: var(--radius-md);
+	  border: 1px solid var(--color-border-default);
+	  font-family: var(--font-body);
+	}
+	
+	/* Buttons */
+	
+	button {
+	  padding: var(--space-sm) var(--space-md);
+	  border-radius: var(--radius-md);
+	  border: 1px solid var(--color-border-default);
+	  background: var(--color-bg-surface);
+	  cursor: pointer;
+	  font-family: var(--font-body);
+	}
+	button:hover{
+	border-color: var(--color-accent-primary);
+	color: var(--color-accent-primary);	
+	}
+	
+	button.primary {
+	  border-color: var(--color-accent-primary);
+	  background: var(--color-accent-primary);
+	  color: #ffffff;
+	  padding: var(--space-sm) var(--space-xl);
+	}
+	button.primary:hover{
+		border-color: var(--color-accent-primary-hover);
+		  background: var(--color-accent-primary-hover);
+	}
+	
+	button.danger {
+	  border-color: var(--color-accent-danger);
+	  color: var(--color-accent-danger);
+	}
+	
+	button:disabled {
+	  opacity: 0.5;
+	  cursor: not-allowed;
+	}
+	
+	/* Layout helpers */
+	
+	.row,
+	.rightRow {
+	  display: flex;
+	  gap: var(--space-sm);
+	  flex-wrap: wrap;
+	  align-items: center;
+	}
+	
+	.rightRow {
+	  justify-content: space-between;
+	}
+	
+	.split {
+	  display: flex;
+	  gap: var(--space-sm);
+	  flex-wrap: wrap;
+	}
+	
+	.split > * {
+	  flex: 1;
+	  min-width: 220px;
+	}
+
+	/* Split ratios */
+	.split-2-1 { flex-wrap: nowrap; }
+	.split-2-1 > :first-child { flex: 2; min-width: 0; }
+	.split-2-1 > :last-child { flex: 1; min-width: 220px; }
+	/* Allow inputs to shrink inside flex containers */
+	.split-2-1 input, .split-2-1 select { min-width: 0; }
+
+	@media (max-width: 700px) { .split-2-1 { flex-wrap: wrap; } }
+
+	/* Action bar layout */
+	.actionBar {
+	  display: flex;
+	  align-items: center;
+	  gap: var(--space-sm);
+	  border-top: 1px solid var(--color-border-subtle);
+	  margin-top: var(--space-md);
+		padding-top: var(--space-md);
+	}
+	.actionBar-right {
+	  display: flex;
+	  gap: var(--space-sm);
+	  flex-wrap: wrap;
+	  justify-content: flex-end;
+	  margin-left: auto; /* ← the magic */
+	}
+
+	/* Sidebar structure */
+	.sidebar { display: flex; flex-direction: column; }
+	.sidebarHeaderTop { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
+	.sidebarHeaderBottom { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+	#list { flex: 1; }
+
+	.libraryFooter {
+	  margin-top: var(--space-md);
+	  padding-top: var(--space-md);
+	  border-top: 1px solid var(--color-border-subtle);
+	  display: flex;
+	  gap: var(--space-sm);
+	  flex-wrap: wrap;
+	  align-items: center;
+	}
+	.libraryFooter .spacer { flex: 1; }
+	
+	/* Dividers */
+	
+	.hr {
+	  height: 1px;
+	  background: var(--color-border-subtle);
+	  margin: var(--space-md) 0;
+	}
+	
+	/* Counts / pills */
+	
+.counts {
+	  display: grid;
+	  grid-template-columns: auto auto;
+	  justify-content: end;
+	  gap: var(--space-sm);
+	  align-items: center;
+	  margin-top: var(--space-sm);
+	}
+	
+	.pill {
+	  font-variant-numeric: tabular-nums;
+	  padding: var(--space-xs) var(--space-sm);
+	  border-radius: var(--radius-pill);
+	  border: 1px solid var(--color-border-subtle);
+	  background: var(--color-bg-muted);
+	  font-size: var(--font-size-xs);
+	}
+	
+	.pill.ok {
+	  border-color: var(--color-success);
+	  color: var(--color-success);
+	  background: var(--color-success-bg);
+	}
+	
+	.pill.off {
+	  border-color: var(--color-error);
+	  color: var(--color-error);
+	  background: var(--color-error-bg);
+	}
+	
+	/* Lists */
+	
+	.list {
+	  display: flex;
+	  flex-direction: column;
+	  gap: var(--space-sm);
+	}
+	
+	.item {
+	  border: 1px solid var(--color-border-subtle);
+	  border-radius: var(--radius-lg);
+	  padding: var(--space-sm);
+	  cursor: pointer;
+	}
+	
+	.item:hover {
+	  background: var(--color-bg-muted);
+	}
+	
+	.item strong {
+	  display: block;
+	  font-size: var(--font-size-sm);
+	  margin-bottom: var(--space-xs);
+	}
+	
+	.item .preview {
+	  font-size: var(--font-size-xs);
+	  color: var(--color-text-soft);
+	  white-space: nowrap;
+	  overflow: hidden;
+	  text-overflow: ellipsis;
+	}
+	
+	/* List row with actions */
+	
+	.itemRow {
+	  display: flex;
+	  justify-content: space-between;
+	  gap: var(--space-sm);
+	  align-items: start;
+	}
+	
+	.iconBtn {
+	  padding: var(--space-xs) var(--space-sm);
+	  border-radius: var(--radius-pill);
+	  font-size: var(--font-size-xs);
+	  min-width:5em;
+	}
+	
+	/* Footer */
+	
+	.footerRow {
+	  display: flex;
+	  gap: var(--space-sm);
+	  flex-wrap: wrap;
+	  margin-top: var(--space-md);
+	}
+	
+	label {
+	  font-size: var(--font-size-xs);
+	  color: #444;
+	  display: block;
+	  margin: var(--space-sm) 0 var(--space-xs);
+	}
+	
+  </style>
+</head>
+<body>
+<header>
+	<div class="container">
+		<div>
+  <h1>Five Seven Five</h1>
+  <div class="row">
+	<span class="muted">Poetry may disagree with the numbers.</span>
+  </div>
+  </div>
+</header>
+
+<main>
+  <section class="card" id="editor">
+	<div class="split split-2-1">
+	  <div>
+		<label for="title">Title (optional)</label>
+		<input id="title" type="text" placeholder="e.g. ‘Rain on tram tracks’" />
+	  </div>
+	  <div>
+		<label for="lang">Syllables in</label>
+		<select id="lang">
+		  <option value="en">English</option>
+		  <option value="es">Spanish</option>
+		</select>
+		<div class="muted tiny" style="margin-top:4px;">
+		 Approximate, check manually. 
+		</div>
+	  </div>
+	</div>
+
+	<div class="hr"></div>
+
+	<label for="l1">Line 1</label>
+	<textarea id="l1" placeholder="5 syllables"></textarea>
+	<div class="counts"><span class="muted">Syllables</span><span class="pill" id="c1">0</span></div>
+
+	<label for="l2">Line 2</label>
+	<textarea id="l2" placeholder="7 syllables"></textarea>
+	<div class="counts"><span class="muted">Syllables</span><span class="pill" id="c2">0</span></div>
+
+	<label for="l3">Line 3</label>
+	<textarea id="l3" placeholder="5 syllables"></textarea>
+	<div class="counts"><span class="muted">Syllables</span><span class="pill" id="c3">0</span></div>
+
+	<div class="actionBar">
+	  <button class="danger" id="deleteBtn" disabled>Delete</button>
+	  <div class="actionBar-right">
+		<button id="downloadBtn" disabled>Download .md</button>
+		<button class="primary" id="saveBtn">Save</button>
+	  </div>
+	</div>
+  </section>
+
+  <aside class="card sidebar">
+	<div class="sidebarHeaderTop">
+	  <strong>Saved haikus</strong>
+	  <button id="newBtn" class="primary">New</button>
+	</div>
+
+	<div class="sidebarHeaderBottom" style="margin-top:6px;">
+	  <span class="muted tiny"><span id="countSaved">0</span> entries</span>
+	  <div class="rightRow" style="justify-content:flex-end;">
+		<span class="muted tiny">Sort by</span>
+		<select id="sort" class="tiny">
+		  <option value="updated_desc">Updated (new → old)</option>
+		  <option value="updated_asc">Updated (old → new)</option>
+		  <option value="created_desc">Created (new → old)</option>
+		  <option value="created_asc">Created (old → new)</option>
+		  <option value="title_asc">Title (A → Z)</option>
+		  <option value="title_desc">Title (Z → A)</option>
+		</select>
+	  </div>
+	</div>
+
+	<div class="muted tiny" style="margin-top:6px;">
+	  Click to load. Your data lives in this browser + exports.
+	</div>
+	<div class="hr"></div>
+	<div class="list" id="list"></div>
+
+	<div class="libraryFooter">
+	  <button id="exportBtn">Export (.json)</button>
+	  <button id="exportAllMdBtn">Download all (.md)</button>
+	  <label style="margin:0;">
+		<input id="importInput" type="file" accept="application/json" style="display:none;" />
+		<button id="importBtn">Import (.json)</button>
+	  </label>
+	  <span class="spacer"></span>
+	  <span class="muted tiny" id="status"></span>
+	</div>
+  </aside>
+</main>
+<div class="footer">
+	<div class="container">
+		<p class="tiny muted">By Kemie · 2026 · <a href="https://github.com/kemie/Five-seven-five">Source</a></p>
+	
+		
+	</div>
+</div>
+
+<script>
+  // ---------- Storage ----------
+  const STORAGE_KEY = "haiku_vault_v1";
+  /** @type {{id:string, title:string, lang:"en"|"es", lines:[string,string,string], created:number, updated:number}[]} */
+  let library = [];
+
+  function loadLibrary() {
+	try {
+	  const raw = localStorage.getItem(STORAGE_KEY);
+	  library = raw ? JSON.parse(raw) : [];
+	  if (!Array.isArray(library)) library = [];
+	} catch {
+	  library = [];
+	}
+  }
+  function saveLibrary() {
+	localStorage.setItem(STORAGE_KEY, JSON.stringify(library));
+  }
+
+  // ---------- Syllable counting (heuristics) ----------
+  function cleanText(s) {
+	return (s || "")
+	  .toLowerCase()
+	  .replace(/[\u2019']/g, "'")
+	  .replace(/[^a-záéíóúüñ' -]/gi, " ")
+	  .replace(/\s+/g, " ")
+	  .trim();
+  }
+
+  // English heuristic:
+  // - count vowel groups
+  // - subtract common silent-e
+  // - add back -le endings (table, bottle)
+  // - clamp >= 1 for non-empty words
+  function countSyllablesENLine(line) {
+	const text = cleanText(line);
+	if (!text) return 0;
+	const words = text.split(" ");
+	return words.reduce((sum, w) => sum + countSyllablesENWord(w), 0);
+  }
+
+  function countSyllablesENWord(word) {
+	let w = word.replace(/[^a-z']/g, "");
+	if (!w) return 0;
+	// Short words
+	if (w.length <= 3) return 1;
+
+	// Remove trailing apostrophe s
+	w = w.replace(/'s$/, "");
+
+	// Count vowel groups
+	const vowelGroups = w.match(/[aeiouy]+/g);
+	let count = vowelGroups ? vowelGroups.length : 0;
+
+	// Silent 'e' at end (but not 'le' preceded by consonant)
+	if (w.endsWith("e")) {
+	  if (!/[^aeiouy]le$/.test(w)) {
+		count -= 1;
+	  }
+	}
+
+	// Add for consonant+le ending (bottle, table)
+	if (/[^aeiouy]le$/.test(w)) count += 1;
+
+	// Add for -ism occasionally (rhythmically imperfect, but helps)
+	if (/ism$/.test(w)) count += 1;
+
+	// Subtract for some -ed endings where it’s likely silent (walked, jumped)
+	if (/(ed)$/.test(w) && !/(ted|ded)$/.test(w)) {
+	  // only if it looks like an extra vowel group was counted
+	  count -= 1;
+	}
+
+	// Clamp
+	if (count < 1) count = 1;
+	return count;
+  }
+
+  // Spanish heuristic (still imperfect; Spanish syllables are *rulesy*):
+  // - count vowel nuclei (a/e/i/o/u/á/é/í/ó/ú/ü) as groups
+  // - treat common diphthongs as one nucleus unless accent breaks it (í, ú tend to force hiatus)
+  // - handle 'y' as vowel when alone or at word end ("hoy", "y")
+  // - handle silent u in gue/gui/que/qui unless ü
+  function countSyllablesESLine(line) {
+	const text = cleanText(line);
+	if (!text) return 0;
+	const words = text.split(" ");
+	return words.reduce((sum, w) => sum + countSyllablesESWord(w), 0);
+  }
+
+  function stripSpanishSilentU(word) {
+	// gue/gui/que/qui: 'u' is silent unless ü
+	// Keep ü as vowel (güi, güe).
+	return word
+	  .replace(/qu([ei])/g, "q$1")
+	  .replace(/gu([ei])/g, "g$1")
+	  .replace(/gü([ei])/g, "gü$1"); // preserve ü-ish form
+  }
+
+  function countSyllablesESWord(word) {
+	let w = word.replace(/[^a-záéíóúüñy]/gi, "").toLowerCase();
+	if (!w) return 0;
+
+	w = stripSpanishSilentU(w);
+
+	// Treat 'y' as vowel if it's the whole word or at end (hoy, muy)
+	w = w.replace(/^y$/, "i");
+	w = w.replace(/y$/g, "i");
+
+	const vowels = "aeiouáéíóúü";
+	const strong = "aáeéoó";
+	const weak = "iíuúü";
+
+	// Walk characters and count vowel nuclei
+	let count = 0;
+	for (let i = 0; i < w.length; i++) {
+	  const ch = w[i];
+	  if (!vowels.includes(ch)) continue;
+
+	  // Start of a nucleus
+	  count += 1;
+
+	  // Consume following vowels that belong to same nucleus (diphthongs/triphthongs)
+	  // Basic rule: weak+weak -> together, strong+weak -> together,
+	  // BUT accented weak (í, ú) tends to break into hiatus.
+	  let j = i + 1;
+	  while (j < w.length && vowels.includes(w[j])) {
+		const a = w[i];
+		const b = w[j];
+
+		const aIsWeak = weak.includes(a);
+		const bIsWeak = weak.includes(b);
+		const aIsStrong = strong.includes(a);
+		const bIsStrong = strong.includes(b);
+
+		const aIsAccentedWeak = (a === "í" || a === "ú");
+		const bIsAccentedWeak = (b === "í" || b === "ú");
+
+		// If either is accented weak, likely hiatus -> stop nucleus
+		if (aIsAccentedWeak || bIsAccentedWeak) break;
+
+		// strong+strong usually splits (po-e-ta)
+		if (aIsStrong && bIsStrong) break;
+
+		// otherwise treat as same nucleus (diphthong/triphthong-ish)
+		j += 1;
+		i = j - 1;
+	  }
+	}
+
+	// Clamp: if there are letters and we counted none, treat as 1 (rare)
+	if (count < 1) count = 1;
+	return count;
+  }
+
+  // ---------- UI ----------
+  const els = {
+	title: document.getElementById("title"),
+	lang: document.getElementById("lang"),
+	l1: document.getElementById("l1"),
+	l2: document.getElementById("l2"),
+	l3: document.getElementById("l3"),
+	c1: document.getElementById("c1"),
+	c2: document.getElementById("c2"),
+	c3: document.getElementById("c3"),
+	saveBtn: document.getElementById("saveBtn"),
+	newBtn: document.getElementById("newBtn"),
+	deleteBtn: document.getElementById("deleteBtn"),
+	downloadBtn: document.getElementById("downloadBtn"),
+	exportBtn: document.getElementById("exportBtn"),
+	importBtn: document.getElementById("importBtn"),
+	importInput: document.getElementById("importInput"),
+	list: document.getElementById("list"),
+	sort: document.getElementById("sort"),
+	countSaved: document.getElementById("countSaved"),
+	status: document.getElementById("status"),
+	exportAllMdBtn: document.getElementById("exportAllMdBtn"),
+  };
+
+  const TARGET = [5, 7, 5];
+  let currentId = null;
+  let sortMode = "updated_desc";
+  function syllablesForLine(line, lang) {
+	return lang === "es" ? countSyllablesESLine(line) : countSyllablesENLine(line);
+  }
+
+  function refreshCounts() {
+	const lang = els.lang.value;
+	const lines = [els.l1.value, els.l2.value, els.l3.value];
+	const counts = lines.map(l => syllablesForLine(l, lang));
+
+	[els.c1, els.c2, els.c3].forEach((pill, idx) => {
+	  pill.textContent = `${counts[idx]}/${TARGET[idx]}`;
+	  pill.classList.remove("ok", "off");
+	  if (!lines[idx].trim()) return;
+	  pill.classList.add(counts[idx] === TARGET[idx] ? "ok" : "off");
+	});
+  }
+
+  function setStatus(msg) {
+	els.status.textContent = msg;
+	if (msg) setTimeout(() => { if (els.status.textContent === msg) els.status.textContent = ""; }, 2500);
+  }
+
+  function clearEditor() {
+	currentId = null;
+	els.title.value = "";
+	els.lang.value = "en";
+	els.l1.value = "";
+	els.l2.value = "";
+	els.l3.value = "";
+	els.deleteBtn.disabled = true;
+	els.downloadBtn.disabled = true;
+	refreshCounts();
+  }
+
+  function getEditorData() {
+	const title = els.title.value.trim();
+	const lang = els.lang.value;
+	const lines = [els.l1.value, els.l2.value, els.l3.value].map(s => s.trimEnd());
+	return { title, lang, lines };
+  }
+
+  function renderList() {
+	els.list.innerHTML = "";
+	els.countSaved.textContent = `${library.length}`;
+
+	const sorted = [...library].sort((a, b) => {
+	  switch (sortMode) {
+		case "updated_asc": return (a.updated || 0) - (b.updated || 0);
+		case "updated_desc": return (b.updated || 0) - (a.updated || 0);
+		case "created_asc": return (a.created || 0) - (b.created || 0);
+		case "created_desc": return (b.created || 0) - (a.created || 0);
+		case "title_asc": return (a.title || "").localeCompare(b.title || "");
+		case "title_desc": return (b.title || "").localeCompare(a.title || "");
+		default: return (b.updated || 0) - (a.updated || 0);
+	  }
+	});
+	for (const h of sorted) {
+	  const div = document.createElement("div");
+	  div.className = "item";
+	  const t = h.title || "(untitled)";
+	  const preview = h.lines.filter(Boolean).join(" / ") || "(empty)";
+	  const when = new Date(h.updated).toLocaleString();
+	div.innerHTML = `
+	  <div class="itemRow">
+		<div>
+		  <strong>${escapeHtml(t)} <span class="muted tiny">· ${h.lang.toUpperCase()} · ${escapeHtml(when)}</span></strong>
+		  <div class="preview">${escapeHtml(preview)}</div>
+		</div>
+		<button class="iconBtn" data-dl="1" title="Download .md">⬇︎ .md</button>
+	  </div>
+	`;
+	  div.addEventListener("click", () => loadHaiku(h.id));
+	  const dlBtn = div.querySelector('button[data-dl="1"]');
+	  dlBtn.addEventListener("click", (e) => {
+		e.stopPropagation(); // don’t also load into editor
+		downloadMarkdownForHaiku(h);
+	  });
+	  els.list.appendChild(div);
+	}
+  }
+
+  function escapeHtml(s) {
+	return (s || "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+
+  function loadHaiku(id) {
+	const h = library.find(x => x.id === id);
+	if (!h) return;
+	currentId = id;
+	els.title.value = h.title || "";
+	els.lang.value = h.lang || "en";
+	els.l1.value = h.lines?.[0] || "";
+	els.l2.value = h.lines?.[1] || "";
+	els.l3.value = h.lines?.[2] || "";
+	els.deleteBtn.disabled = false;
+	els.downloadBtn.disabled = false;
+	refreshCounts();
+  }
+
+  function saveCurrent() {
+	const { title, lang, lines } = getEditorData();
+	const hasContent = title || lines.some(l => l.trim());
+	if (!hasContent) { setStatus("Nothing to save."); return; }
+
+	const now = Date.now();
+	if (currentId) {
+	  const idx = library.findIndex(x => x.id === currentId);
+	  if (idx !== -1) {
+		library[idx] = { ...library[idx], title, lang, lines, updated: now };
+	  }
+	} else {
+	  const id = crypto.randomUUID ? crypto.randomUUID() : String(now) + Math.random().toString(16).slice(2);
+	  library.push({ id, title, lang, lines, created: now, updated: now });
+	  currentId = id;
+	  els.deleteBtn.disabled = false;
+	  els.downloadBtn.disabled = false;
+	}
+
+	saveLibrary();
+	renderList();
+	setStatus("Saved.");
+  }
+
+  function deleteCurrent() {
+	if (!currentId) return;
+	library = library.filter(x => x.id !== currentId);
+	saveLibrary();
+	renderList();
+	clearEditor();
+	setStatus("Deleted.");
+  }
+  function downloadMarkdownForHaiku(h) {
+	const title = h.title?.trim() || "haiku";
+	const safe = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+	const date = new Date(h.updated).toISOString().slice(0,10);
+	const filename = `${date}-${safe || "haiku"}.md`;
+  
+	const counts = h.lines.map(l => syllablesForLine(l, h.lang));
+	const md =
+  `---
+  type: haiku
+  lang: ${h.lang}
+  created: ${new Date(h.created).toISOString()}
+  updated: ${new Date(h.updated).toISOString()}
+  syllables: [${counts.join(", ")}]
+  ---
+  
+  ${h.title ? `# ${h.title}\n\n` : ""}${h.lines[0] || ""}\n${h.lines[1] || ""}\n${h.lines[2] || ""}\n`;
+  
+	const blob = new Blob([md], { type: "text/markdown" });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = filename;
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	URL.revokeObjectURL(url);
+  }
+
+ function downloadMarkdown() {
+   if (!currentId) return;
+   const h = library.find(x => x.id === currentId);
+   if (!h) return;
+   downloadMarkdownForHaiku(h);
+ }
+
+ function exportAllMarkdown() {
+   if (!library.length) { setStatus("No haikus to export."); return; }
+ 
+   const sorted = [...library].sort((a,b) => (b.updated || 0) - (a.updated || 0));
+ 
+   const blocks = sorted.map(h => {
+	 const counts = h.lines.map(l => syllablesForLine(l, h.lang));
+	 const titleLine = h.title ? `# ${h.title}\n` : `# (untitled)\n`;
+	 const meta =
+ `---
+ type: haiku
+ lang: ${h.lang}
+ created: ${new Date(h.created).toISOString()}
+ updated: ${new Date(h.updated).toISOString()}
+ syllables: [${counts.join(", ")}]
+ id: ${h.id}
+ ---
+ 
+ `;
+	 return `${titleLine}\n${meta}${h.lines[0] || ""}\n${h.lines[1] || ""}\n${h.lines[2] || ""}\n`;
+   });
+ 
+   const md = blocks.join("\n---\n\n");
+   const blob = new Blob([md], { type: "text/markdown" });
+   const url = URL.createObjectURL(blob);
+   const a = document.createElement("a");
+   a.href = url;
+   a.download = `haiku-library-${new Date().toISOString().slice(0,10)}.md`;
+   document.body.appendChild(a);
+   a.click();
+   a.remove();
+   URL.revokeObjectURL(url);
+ 
+   setStatus("Downloaded all haikus as one .md file.");
+ }
+
+  function exportJSON() {
+	const blob = new Blob([JSON.stringify({ version: 1, exported: Date.now(), library }, null, 2)], { type: "application/json" });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = `haiku-vault-export-${new Date().toISOString().slice(0,10)}.json`;
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	URL.revokeObjectURL(url);
+	setStatus("Exported.");
+  }
+
+  function importJSON(file) {
+	const reader = new FileReader();
+	reader.onload = () => {
+	  try {
+		const obj = JSON.parse(String(reader.result || ""));
+		const incoming = obj.library;
+		if (!Array.isArray(incoming)) throw new Error("Invalid file");
+
+		// Merge by id; keep the newest updated record
+		const map = new Map(library.map(h => [h.id, h]));
+		for (const h of incoming) {
+		  if (!h?.id) continue;
+		  const existing = map.get(h.id);
+		  if (!existing || (h.updated || 0) > (existing.updated || 0)) map.set(h.id, h);
+		}
+		library = Array.from(map.values());
+		saveLibrary();
+		renderList();
+		setStatus("Imported.");
+	  } catch {
+		setStatus("Import failed (wrong file?).");
+	  }
+	};
+	reader.readAsText(file);
+  }
+
+  // ---------- Events ----------
+  [els.title, els.lang, els.l1, els.l2, els.l3].forEach(el => el.addEventListener("input", refreshCounts));
+  els.saveBtn.addEventListener("click", saveCurrent);
+  els.newBtn.addEventListener("click", clearEditor);
+  els.deleteBtn.addEventListener("click", deleteCurrent);
+  els.downloadBtn.addEventListener("click", downloadMarkdown);
+  els.exportBtn.addEventListener("click", exportJSON);
+  els.sort.addEventListener("change", () => {
+	sortMode = els.sort.value;
+	renderList();
+  });
+  els.exportAllMdBtn.addEventListener("click", exportAllMarkdown);
+  els.importBtn.addEventListener("click", () => els.importInput.click());
+  els.importInput.addEventListener("change", (e) => {
+	const file = e.target.files?.[0];
+	if (file) importJSON(file);
+	e.target.value = "";
+  });
+
+  // Keyboard: Cmd/Ctrl+S saves
+  document.addEventListener("keydown", (e) => {
+	if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+	  e.preventDefault();
+	  saveCurrent();
+	}
+  });
+
+  // ---------- Init ----------
+  loadLibrary();
+  renderList();
+  clearEditor();
+</script>
+</body>
+</html>
