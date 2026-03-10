@@ -1,8 +1,10 @@
 # Five Seven Five
+#### a minimal haiku editor
 
-> a grid of lined squares
-> to build a little poem
-> of five seven five
+a grid of lined squares
+to build a little poem
+of five seven five
+
 
 A small, local-first haiku editor with live syllable counting.
 Runs as a single HTML file. No accounts, no tracking, no backend.
@@ -28,6 +30,7 @@ For Obsidian users:
 Haikus are stored locally in your browser.
 Clearing browser data will remove them.
 They won’t sync between browsers or devices.
+*Backup to .md or .json often!*
 
 #### Export regularly if you care about keeping them.
 
@@ -43,7 +46,14 @@ Edit the HTML/CSS/JS directly to:
 - Adjust layout
 - Tweak syllable rules
 
-No framework knowledge required.
+## Changelog
+### Feb 10, 2026
+- v1
+### March 10, 2026
+- v1.1;
+- Added option to delete library
+- Fixed .md export format
+- display creation date rather than updated
 
 ## License
 MIT
