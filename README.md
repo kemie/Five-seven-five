@@ -1,9 +1,9 @@
 # Five Seven Five
 #### a minimal haiku editor
 
-a grid of lined squares
-to build a little poem
-of five seven five
+    a grid of lined squares
+    to build a little poem
+    of five seven five
 
 
 A small, local-first haiku editor with live syllable counting.
